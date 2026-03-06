@@ -1,0 +1,39 @@
+services:
+  mongo:
+    image: mongo:8.0
+    restart: always
+    command: ["--replSet", "overleaf"]
+    volumes:
+      - overleaf_mongo_data:/data/db
+
+  redis:
+    image: redis:7.4
+    restart: always
+    volumes:
+      - overleaf_redis_data:/data
+
+  sharelatex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "80:80"
+    volumes:
+      - overleaf_overleaf_data:/var/lib/overleaf
+    environment:
+      OVERLEAF_MONGO_URL: mongodb://mongo/overleaf?replicaSet=overleaf
+      OVERLEAF_REDIS_HOST: redis
+      REDIS_HOST: redis
+      OVERLEAF_APP_NAME: Meu Overleaf Local
+
+volumes:
+  overleaf_mongo_data:
+    external: true
+  overleaf_redis_data:
+    external: true
+  overleaf_overleaf_data:
+    external: true
