@@ -1,16 +1,71 @@
 services:
   mongo:
-    image: mongo:8.0
+    image: mongo:8.0.4
     restart: always
-    command: ["--replSet", "overleaf"]
+    command: ["--replSet", "overleaf", "--bind_ip_all"]
     volumes:
       - overleaf_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  mongo-init:
+    image: mongo:8.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        mongosh --host mongo:27017 --quiet <<'EOF'
+        try {
+          const status = rs.status()
+          if (status.ok === 1) {
+            print("Replica set já inicializado.")
+            quit(0)
+          }
+        } catch (e) {
+          print("Inicializando replica set...")
+        }
+
+        rs.initiate({
+          _id: "overleaf",
+          members: [{ _id: 0, host: "mongo:27017" }]
+        })
+
+        let retries = 30
+        while (retries > 0) {
+          try {
+            const hello = db.hello()
+            if (hello.isWritablePrimary) {
+              print("Mongo PRIMARY pronto.")
+              quit(0)
+            }
+          } catch (e) {}
+          sleep(2000)
+          retries--
+        }
+
+        print("Timeout aguardando PRIMARY.")
+        quit(1)
+        EOF
 
   redis:
     image: redis:7.4
     restart: always
     volumes:
       - overleaf_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
   sharelatex:
     build:
@@ -18,18 +73,22 @@ services:
       dockerfile: Dockerfile
     restart: always
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     ports:
       - "80:80"
     volumes:
       - overleaf_overleaf_data:/var/lib/overleaf
     environment:
-      OVERLEAF_MONGO_URL: mongodb://mongo/overleaf?replicaSet=overleaf
+      OVERLEAF_MONGO_URL: mongodb://mongo:27017/overleaf?replicaSet=overleaf
       OVERLEAF_REDIS_HOST: redis
       REDIS_HOST: redis
       OVERLEAF_APP_NAME: Meu Overleaf Local
-
+      OVERLEAF_INVITE_TOKEN_SECRET: 7aQBFWw2n97fj68j/xGwYSIkWhFd/cA43RCGcXns294=
 volumes:
   overleaf_mongo_data:
     external: true
