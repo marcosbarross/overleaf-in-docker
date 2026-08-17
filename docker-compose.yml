@@ -68,9 +68,7 @@ services:
       start_period: 5s
 
   sharelatex:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: marcosbarross/overleaf-on-docker:latest
     restart: always
     depends_on:
       mongo:

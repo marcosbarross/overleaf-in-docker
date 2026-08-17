@@ -1,0 +1,41 @@
+name: Build Go Binary
+
+on:
+  push:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/build-go.yml'
+  pull_request:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/build-go.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Backup Binary
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+
+      - name: Build binary
+        run: go build -v -o bin/overleaf-backup .
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: overleaf-backup-linux-amd64
+          path: bin/overleaf-backup
+          retention-days: 14

@@ -1,4 +1,4 @@
-FROM marcosbarross/overleaf-on-docker
+FROM sharelatex/sharelatex:6.2.2
 
 RUN apt-get update && \
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
